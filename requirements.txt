@@ -1,0 +1,13 @@
+opencv-python
+face_recognition
+pyttsx3
+SpeechRecognition
+pyaudio
+python-dotenv
+requests
+ultralytics
+torch
+torchvision
+torchaudio
+pytesseract
+Pillow
