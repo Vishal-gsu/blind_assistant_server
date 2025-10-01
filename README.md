@@ -82,11 +82,34 @@ The system consists of several key modules:
 
 ### Running the Server
 
+**Option 1: Using the optimized startup script (Recommended)**
+```bash
+python start_server.py
+```
+
+**Option 2: Direct execution**
 ```bash
 python main.py
 ```
 
 The server will start on `http://localhost:8000` by default.
+
+### 🔧 Memory Management
+
+For systems with limited GPU memory (< 6GB), the system automatically:
+- Uses CPU for OCR operations to save GPU memory
+- Implements memory clearing between operations
+- Resizes images to optimal sizes
+- Falls back to lighter models when needed
+- Provides detailed memory usage information
+
+**Environment Variables for Memory Optimization:**
+```bash
+# Set these if you encounter memory issues
+export PYTORCH_CUDA_ALLOC_CONF=expandable_segments:True
+export OMP_NUM_THREADS=4
+export CUDA_LAUNCH_BLOCKING=1
+```
 
 ## 📡 API Endpoints
 

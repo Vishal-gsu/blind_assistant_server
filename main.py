@@ -65,39 +65,48 @@ async def process_data(request: ProcessRequest):
     result_text = ""
     structured_data = None
 
-    if request.task == 'describe_scene':
-        if not image:
-            raise HTTPException(status_code=400, detail="Image data is required for describe_scene task")
-        result_text = ai_models.describe_scene(image)
-    elif request.task == 'read_text':
-        if not image:
-            raise HTTPException(status_code=400, detail="Image data is required for read_text task")
-        result_text = ai_models.read_text(image)
-    elif request.task == 'find_object':
-        if not image or not request.query_text:
-            raise HTTPException(status_code=400, detail="Image data and query_text are required for find_object task")
-        response = ai_models.find_object(image, request.query_text)
-        result_text = response.get("result_text")
-        structured_data = response.get("structured_data")
-    elif request.task == 'answer_question':
-        if not image or not request.query_text:
-            raise HTTPException(status_code=400, detail="Image data and query_text are required for answer_question task")
-        result_text = ai_models.answer_question(image, request.query_text)
-    elif request.task == 'time':
-        now = datetime.datetime.now()
-        result_text = f"The current time is {now.strftime('%H:%M')}"
-    elif request.task == 'face_detect':
-        if not image:
-            raise HTTPException(status_code=400, detail="Image data is required for face_detect task")
-        # Convert PIL image to numpy array for face_recognition
-        frame = np.array(image)
-        recognized_persons = face_manager.recognize_person_in_frame(frame)
-        if recognized_persons:
-            result_text = f"Detected persons: {', '.join(recognized_persons)}"
+    try:
+        if request.task == 'describe_scene':
+            if not image:
+                raise HTTPException(status_code=400, detail="Image data is required for describe_scene task")
+            result_text = ai_models.describe_scene(image)
+        elif request.task == 'read_text':
+            if not image:
+                raise HTTPException(status_code=400, detail="Image data is required for read_text task")
+            result_text = ai_models.read_text(image)
+        elif request.task == 'find_object':
+            if not image or not request.query_text:
+                raise HTTPException(status_code=400, detail="Image data and query_text are required for find_object task")
+            response = ai_models.find_object(image, request.query_text)
+            result_text = response.get("result_text")
+            structured_data = response.get("structured_data")
+        elif request.task == 'answer_question':
+            if not image or not request.query_text:
+                raise HTTPException(status_code=400, detail="Image data and query_text are required for answer_question task")
+            result_text = ai_models.answer_question(image, request.query_text)
+        elif request.task == 'time':
+            now = datetime.datetime.now()
+            result_text = f"The current time is {now.strftime('%H:%M')}"
+        elif request.task == 'face_detect':
+            if not image:
+                raise HTTPException(status_code=400, detail="Image data is required for face_detect task")
+            # Convert PIL image to numpy array for face_recognition
+            frame = np.array(image)
+            recognized_persons = face_manager.recognize_person_in_frame(frame)
+            if recognized_persons:
+                result_text = f"Detected persons: {', '.join(recognized_persons)}"
+            else:
+                result_text = "No known persons detected."
         else:
-            result_text = "No known persons detected."
-    else:
-        raise HTTPException(status_code=400, detail="Invalid task")
+            raise HTTPException(status_code=400, detail="Invalid task")
+            
+    except RuntimeError as e:
+        if "memory" in str(e).lower():
+            raise HTTPException(status_code=503, detail=f"Server memory error: {e}. Try reducing image size or try again later.")
+        else:
+            raise HTTPException(status_code=500, detail=f"Model processing error: {e}")
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Unexpected error: {e}")
 
     if not result_text:
         result_text = "I'm sorry, I couldn't process the request."
