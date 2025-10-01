@@ -6,31 +6,13 @@ def load_ocr_model():
     """Check if we can use Tesseract OCR"""
     try:
         import pytesseract
-        
-        possible_paths = [
-            r'C:\Program Files\Tesseract-OCR\tesseract.exe',
-            r'C:\Program Files (x86)\Tesseract-OCR\tesseract.exe',
-            r'C:\Users\HUNTER\AppData\Local\Tesseract-OCR\tesseract.exe',
-        ]
-        
-        for path in possible_paths:
-            try:
-                import os
-                if os.path.exists(path):
-                    pytesseract.pytesseract.tesseract_cmd = path
-                    return True
-            except:
-                continue
-        
-        try:
-            pytesseract.get_tesseract_version()
-            return True
-        except:
-            print("Tesseract not found. Please install Tesseract OCR.")
-            return False
-            
+        pytesseract.get_tesseract_version()
+        return True
     except ImportError:
         print("pytesseract not installed")
+        return False
+    except pytesseract.TesseractNotFoundError:
+        print("Tesseract not found. Please install Tesseract OCR and ensure it's in your PATH.")
         return False
 
 def preprocess_image_for_ocr(image):

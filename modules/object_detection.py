@@ -7,7 +7,7 @@ import queue
 import time
 # REMOVED: time and face as fr are no longer needed here
 
-ANNOUNCEMENT_COOLDOWN_SECONDS = 6
+ANNOUNCEMENT_COOLDOWN_SECONDS = 5
 
 def detect_objects_worker(shutdown_event, frame_queue, results_queue):
     """
@@ -32,17 +32,17 @@ def detect_objects_worker(shutdown_event, frame_queue, results_queue):
                 frame = frame_queue.get(timeout=1)
 
                 results = model(frame)
-                detected_objects = []
+                detected_objects = set()
 
                 for result in results:
                     for box in result.boxes:
                         if box.conf[0] > 0.6:
                             class_name = model.names[int(box.cls[0])]
-                            detected_objects.append(class_name)
+                            detected_objects.add(class_name)
                 
                 # Send the results back to the main process
                 if results_queue.empty():
-                    results_queue.put(detected_objects)
+                    results_queue.put(list(detected_objects))
 
             except queue.Empty:
                 # This is normal, just means the main process hasn't sent a frame
