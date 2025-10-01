@@ -49,14 +49,26 @@ The system consists of several key modules:
 
 3. **Install PyTorch with CUDA support** (for GPU acceleration)
    ```bash
-   # For CUDA 12.1 (adjust for your CUDA version)
+   # For CUDA 12.1 (recommended)
    pip install torch torchvision torchaudio --index-url https://download.pytorch.org/whl/cu121
+   
+   # For CUDA 11.8
+   pip install torch torchvision torchaudio --index-url https://download.pytorch.org/whl/cu118
+   
+   # For CPU only (if no GPU available)
+   pip install torch torchvision torchaudio --index-url https://download.pytorch.org/whl/cpu
    ```
 
 4. **Install dependencies**
    ```bash
    pip install -r requirements.txt
    ```
+   
+   **Note**: The requirements.txt includes optimized versions with:
+   - Version-pinned packages for stability
+   - Performance optimizations (uvicorn[standard])
+   - Additional AI/ML libraries (sentence-transformers)
+   - Async file handling support
 
 5. **Set up environment variables**
    ```bash
@@ -134,6 +146,35 @@ The system supports various AI models:
 - **LLM Models**: OpenAI GPT models, local models via Hugging Face
 - **Object Detection**: YOLOv8 (ultralytics)
 - **OCR**: EasyOCR, Tesseract
+
+### Dependencies
+
+The `requirements.txt` file is organized into categories:
+
+**🌐 Web Framework & API**
+- FastAPI with version pinning for stability
+- Uvicorn with standard extras for better performance
+- Pydantic for data validation
+
+**🤖 AI/ML Libraries**
+- Transformers for NLP models
+- Sentence-transformers for better embeddings
+- PyTorch ecosystem (manual installation required)
+
+**👁️ Computer Vision & OCR**
+- OpenCV for image processing
+- EasyOCR and Tesseract for text recognition
+- Pillow for image manipulation
+
+**🔊 Audio Processing**
+- pyttsx3 for text-to-speech
+- SpeechRecognition for voice input
+- PyAudio for audio handling
+
+**🛠️ Utilities**
+- Async file operations support
+- Environment configuration
+- HTTP client libraries
 
 ## 📱 Mobile Integration
 

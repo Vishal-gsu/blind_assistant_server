@@ -1,20 +1,58 @@
-# Please install PyTorch with CUDA support manually.
-# For example, for CUDA 12.1, use the following command:
-# pip install torch torchvision torchaudio --index-url https://download.pytorch.org/whl/cu121
+# =============================================================================
+# BLIND ASSISTIVE SYSTEM REQUIREMENTS
+# =============================================================================
 
-fastapi
-uvicorn
-python-multipart
-pydantic
-transformers
-easyocr>=1.7.0
-opencv-python
-pyttsx3
-SpeechRecognition
-pyaudio
-python-dotenv
-requests
+# PyTorch Installation (Install manually first):
+# For CUDA 12.1: pip install torch torchvision torchaudio --index-url https://download.pytorch.org/whl/cu121
+# For CUDA 11.8: pip install torch torchvision torchaudio --index-url https://download.pytorch.org/whl/cu118
+# For CPU only:   pip install torch torchvision torchaudio --index-url https://download.pytorch.org/whl/cpu
+
+# =============================================================================
+# WEB FRAMEWORK & API
+# =============================================================================
+fastapi>=0.104.0
+uvicorn[standard]>=0.24.0
+python-multipart>=0.0.6
+pydantic>=2.4.0
+
+# =============================================================================
+# AI/ML LIBRARIES
+# =============================================================================
+transformers>=4.35.0
+torch  # Install manually with CUDA support
+torchvision  # Install manually with CUDA support
+torchaudio  # Install manually with CUDA support
 ultralytics==8.2.53
-pytesseract
-Pillow
+sentence-transformers>=2.2.0
+
+# =============================================================================
+# COMPUTER VISION & OCR
+# =============================================================================
+opencv-python>=4.8.0
+easyocr>=1.7.0
+pytesseract>=0.3.10
+Pillow>=10.0.0
+
+# =============================================================================
+# AUDIO PROCESSING
+# =============================================================================
+pyttsx3>=2.90
+SpeechRecognition>=3.10.0
+pyaudio>=0.2.11
+
+# =============================================================================
+# UTILITIES & HELPERS
+# =============================================================================
 numpy<2.0.0
+python-dotenv>=1.0.0
+requests>=2.31.0
+aiofiles>=23.0.0
+python-jose[cryptography]>=3.3.0
+
+# =============================================================================
+# OPTIONAL: DEVELOPMENT & TESTING
+# =============================================================================
+# pytest>=7.4.0
+# pytest-asyncio>=0.21.0
+# black>=23.0.0
+# flake8>=6.0.0
