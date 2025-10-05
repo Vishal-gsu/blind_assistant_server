@@ -1,4 +1,3 @@
-
 from transformers import pipeline
 from PIL import Image
 import easyocr
@@ -49,7 +48,7 @@ def load_models():
         print(f"Total GPU Memory: {total_memory:.2f}GB")
         
         # Use CPU for OCR if GPU memory is limited (< 6GB)
-        if total_memory < 6.0:
+        if total_memory < 3.8: # Lowered threshold to allow GPU usage on 4GB cards
             print("Limited GPU memory detected. Using CPU for OCR operations.")
             device = "cpu"  # Use CPU for transformers models
             ocr_device = "cpu"  # Force CPU for OCR
@@ -61,46 +60,43 @@ def load_models():
         ocr_device = "cpu"
     
     try:
-        # Load models with memory optimization
-        if not captioner:
-            print("Loading image captioning model...")
-            captioner = pipeline("image-to-text", 
-                                model="Salesforce/blip-image-captioning-base",  # Use base model for less memory
-                                device=device, 
-                                torch_dtype=torch.float16 if device == "cuda" else torch.float32)
-            
-        if not ocr_reader:
-            print("Loading OCR model...")
-            # Use CPU for EasyOCR to save GPU memory
-            ocr_reader = easyocr.Reader(['en'], gpu=(ocr_device == "cuda"))
-            
-        if not vqa_pipeline:
-            print("Loading VQA model...")
-            vqa_pipeline = pipeline("visual-question-answering", 
-                                   model="Salesforce/blip-vqa-base", 
-                                   device=device,
-                                   torch_dtype=torch.float16 if device == "cuda" else torch.float32)
-            
-        # Skip object detection if memory is very limited
-        if not object_detector and total_memory > 4.0:
-            print("Loading object detection model...")
-            object_detector = pipeline("zero-shot-object-detection", 
+        # Check for GPU and get total memory
+        print("Loading image captioning model...")
+        captioner = pipeline("image-to-text", 
+                               model="microsoft/git-base",
+                               torch_dtype=torch.float16,
+                               device=device)
+        print("Loading visual question answering model...")
+        vqa_pipeline = pipeline("visual-question-answering", 
+                                model="Salesforce/blip-vqa-base", # Changed to a compatible and smaller model
+                                torch_dtype=torch.float16, 
+                                device=device)
+        print("Loading object detection model...")
+        object_detector = pipeline("zero-shot-object-detection", 
                                      model="google/owlvit-base-patch32", 
                                      device=device,
                                      torch_dtype=torch.float16 if device == "cuda" else torch.float32)
-        elif total_memory <= 4.0:
-            print("Skipping object detection model due to memory constraints.")
-            
+        print("Loading OCR model...")
+        ocr_reader = easyocr.Reader(['en'], gpu=(ocr_device == 'cuda'))
+
     except Exception as e:
         print(f"Error loading models: {e}")
-        print("Falling back to CPU-only mode...")
+        print("\nFalling back to CPU-only mode...")
+        # Clear any partial models from GPU
+        clear_gpu_memory()
         # Fallback to CPU-only mode
         if not captioner:
-            captioner = pipeline("image-to-text", model="Salesforce/blip-image-captioning-base", device="cpu")
+            # Load models on CPU
+            print("Loading image captioning model...")
+            captioner = pipeline("image-to-text", model="microsoft/git-base", device="cpu")
         if not ocr_reader:
             ocr_reader = easyocr.Reader(['en'], gpu=False)
         if not vqa_pipeline:
-            vqa_pipeline = pipeline("visual-question-answering", model="Salesforce/blip-vqa-base", device="cpu")
+            print("Loading visual question answering model...")
+            vqa_pipeline = pipeline("visual-question-answering", model="microsoft/git-base-vqav2", device="cpu")
+        if not object_detector:
+            print("Loading object detection model...")
+            object_detector = pipeline("zero-shot-object-detection", model="google/owlvit-base-patch32", device="cpu")
             
     # Clear memory after loading
     clear_gpu_memory()
@@ -138,6 +134,7 @@ def describe_scene(image: Image.Image) -> str:
 
 def read_text(image: Image.Image) -> str:
     """Read text from the image with memory management."""
+    global ocr_reader
     if not ocr_reader:
         raise RuntimeError("OCR model not loaded.")
     
@@ -168,7 +165,6 @@ def read_text(image: Image.Image) -> str:
         clear_gpu_memory()
         # Try with CPU fallback
         try:
-            global ocr_reader
             print("Switching OCR to CPU mode...")
             ocr_reader = easyocr.Reader(['en'], gpu=False)
             image_np = np.array(image)
