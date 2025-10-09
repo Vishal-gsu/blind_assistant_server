@@ -1,114 +1,47 @@
-import cv2
-from PIL import Image
+"""
+OCR Service Module - Text extraction using RapidOCR
+"""
+import logging
 import numpy as np
+from typing import List, Dict
+from rapidocr_onnxruntime import RapidOCR
 
-def load_ocr_model():
-    """Check if we can use Tesseract OCR"""
-    try:
-        import pytesseract
-        pytesseract.get_tesseract_version()
-        return True
-    except ImportError:
-        print("pytesseract not installed")
-        return False
-    except pytesseract.TesseractNotFoundError:
-        print("Tesseract not found. Please install Tesseract OCR and ensure it's in your PATH.")
-        return False
+logger = logging.getLogger(__name__)
 
-def preprocess_image_for_ocr(image):
-    """Preprocess image for better OCR results."""
-    try:
-        if len(image.shape) == 3:
-            gray = cv2.cvtColor(image, cv2.COLOR_BGR2GRAY)
-        else:
-            gray = image
+class OCRReader:
+    def __init__(self):
+        self.ocr_engine = None
+        self.is_initialized = False
 
-        clahe = cv2.createCLAHE(clipLimit=2.0, tileGridSize=(8,8))
-        enhanced = clahe.apply(gray)
-        
-        return enhanced
-    except Exception as e:
-        print(f"Preprocessing error: {e}")
-        return image
+    def load_model(self):
+        if self.is_initialized:
+            return
+        try:
+            logger.info("Initializing OCR Service with RapidOCR...")
+            self.ocr_engine = RapidOCR(providers=['CUDAExecutionProvider', 'CPUExecutionProvider'])
+            self.is_initialized = True
+            logger.info("OCR Service initialized successfully with RapidOCR")
+        except Exception as e:
+            logger.error(f"Error initializing OCR Service: {e}")
+            self.is_initialized = False
 
-def extract_text_from_image(image):
-    """Extract text from image using simple and effective methods"""
-    try:
-        if isinstance(image, np.ndarray):
-            if len(image.shape) == 3:
-                image_rgb = cv2.cvtColor(image, cv2.COLOR_BGR2RGB)
-            else:
-                image_rgb = cv2.cvtColor(image, cv2.COLOR_GRAY2RGB)
-            pil_image = Image.fromarray(image_rgb)
-        else:
-            pil_image = image
+    def read(self, image: np.ndarray) -> List[Dict]:
+        if not self.is_initialized:
+            return []
         
-        best_text = ""
-        
-        if load_ocr_model():
-            try:
-                import pytesseract
-                
-                text = pytesseract.image_to_string(pil_image, config='--psm 6').strip()
-                text = ' '.join(text.split())
-                
-                if text:
-                    best_text = text
-                        
-            except Exception as e:
-                print(f"Tesseract OCR failed: {e}")
-        
-        if not best_text or len(best_text) < 3:
-            processed_image = preprocess_image_for_ocr(image)
-            
-            try:
-                if len(processed_image.shape) == 2:
-                    proc_img_rgb = cv2.cvtColor(processed_image, cv2.COLOR_GRAY2RGB)
-                else:
-                    proc_img_rgb = processed_image
-                
-                pil_proc = Image.fromarray(proc_img_rgb)
-                
-                if load_ocr_model():
-                    import pytesseract
-                    text = pytesseract.image_to_string(pil_proc, config='--psm 6').strip()
-                    text = ' '.join(text.split())
-                    
-                    if text and len(text) > len(best_text):
-                        best_text = text
-                            
-            except Exception as e:
-                print(f"Preprocessing attempt failed: {e}")
-        
-        if best_text:
-            cleaned_text = best_text.replace('|', 'I').replace('{', '').replace('}', '')
-            cleaned_text = cleaned_text.replace('»', '').replace('§', 'S').replace('æ', 'ae')
-            cleaned_text = ' '.join(cleaned_text.split())
-            
-            letter_count = sum(1 for c in cleaned_text if c.isalpha())
-            if letter_count >= 2:
-                return cleaned_text
-            else:
-                return "No clear text detected"
-        else:
-            return "No text detected"
-    
-    except Exception as e:
-        print(f"OCR Error: {e}")
-        return None
+        try:
+            result, _ = self.ocr_engine(image)
+            if not result:
+                return []
 
-def read_text_from_frame(frame):
-    """Main function to capture image and read text - accessible for blind users"""
-    try:
-        text = extract_text_from_image(frame)
-        
-        if text and text.strip() and not text.startswith("No"):
-            cleaned_text = text.replace('\n', ' ').replace('\r', ' ')
-            cleaned_text = ' '.join(cleaned_text.split())
-            return cleaned_text
-        else:
-            return None
-            
-    except Exception as e:
-        print(f"OCR Error: {e}")
-        return None
+            text_results = []
+            for item in result:
+                text_results.append({
+                    'text': item[1],
+                    'confidence': float(item[2]),
+                    'box': item[0]
+                })
+            return text_results
+        except Exception as e:
+            logger.error(f"Error extracting text from image: {e}")
+            return []

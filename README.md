@@ -1,285 +1,155 @@
-# Blind Assistive System 🦯
+# Blind Assistive System v2.0 🚀
 
-A comprehensive AI-powered assistive system designed to help visually impaired users navigate and interact with their environment through voice commands and computer vision.
+A comprehensive, high-performance, self-contained AI assistive system designed to help visually impaired users navigate and interact with their environment. This version uses state-of-the-art models for object detection, depth estimation, face recognition, and OCR, all running on a local server to ensure privacy and offline functionality.
 
-## 🌟 Features
+## 🌟 Core Features
 
-- **Scene Description**: Detailed descriptions of the user's surroundings using advanced computer vision
-- **Text Recognition (OCR)**: Read text from images and documents aloud
-- **Object Detection**: Identify and locate specific objects in the environment
-- **Face Recognition**: Recognize known faces and manage face database
-- **Voice Interaction**: Natural language processing for conversational AI assistance
-- **Time Announcements**: Voice-activated time telling
-- **RESTful API**: FastAPI-based server for integration with mobile applications
+- **Advanced Scene Understanding**: Get detailed descriptions of surroundings and ask specific questions about what you see.
+- **High-Performance Object & Depth Detection**: Uses **YOLOv9c** to identify 80 different classes of objects and **MiDaS** to estimate their distance, providing a rich understanding of the scene.
+- **Fast Face Recognition**: Recognizes known faces using **InsightFace** and allows saving new faces with a name.
+- **Accurate Text Recognition (OCR)**: Reads text from documents, signs, and objects aloud using **RapidOCR**.
+- **RESTful API**: A robust FastAPI server for seamless integration with mobile or other client applications.
 
-## 🏗️ Architecture
+## 🏗️ System Architecture: Modular & Scalable
 
-The system consists of several key modules:
+The system is built as a modular local web server. This design separates the heavy AI processing from the user-facing client application and allows individual AI capabilities to be updated independently.
 
-- **FastAPI Server** (`main.py`): Core API server handling requests
-- **AI Models** (`modules/ai_models.py`): Computer vision and NLP model management
-- **Face Recognition** (`modules/face.py`): Face detection and recognition system
-- **Object Detection** (`modules/object_detection.py`): YOLO-based object detection
-- **OCR** (`modules/ocr.py`): Text extraction from images
-- **LLM Integration** (`modules/llm.py`): Large language model for conversational AI
-- **Voice Processing** (`modules/listening.py`): Audio processing capabilities
+1.  **Uvicorn Web Server (`start_server.py`):** The entry point. It launches the FastAPI application.
+2.  **FastAPI Application (`main.py`):** The API layer. It defines endpoints, handles incoming requests (e.g., image uploads), and routes tasks to the appropriate AI service. All models are loaded at startup for maximum performance.
+3.  **AI Services (`modules/`):** Each core AI task is handled by a dedicated service module:
+    - `vision.py`: Handles image captioning and visual question answering.
+    - `object_detection.py`: Manages object detection (YOLOv9c) and depth estimation (MiDaS).
+    - `face_recognition.py`: Manages face recognition and storage (InsightFace).
+    - `ocr.py`: Handles text recognition (RapidOCR).
 
-## 🚀 Quick Start
+## 🤖 Core AI Models & Processing
+
+All AI processing is done **locally**. Models are downloaded once and saved to a local cache. The system is optimized to use a **CUDA-enabled GPU** for all models, including PyTorch and ONNX runtimes.
+
+| Feature | Model/Library Used | Backend |
+| :--- | :--- | :--- |
+| **Describe Scene** | `microsoft/git-base` | PyTorch |
+| **Ask about Image** | `Salesforce/blip-vqa-base` | PyTorch |
+| **Detect Objects** | `yolov9c.pt` (YOLOv9c) | PyTorch |
+| **Estimate Depth** | `dpt_large` (MiDaS) | PyTorch |
+| **Recognize/Save Faces** | `buffalo_l` (InsightFace) | ONNX |
+| **Read Text** | `RapidOCR` | ONNX |
+
+## 🚀 Quick Start: Installation Guide
 
 ### Prerequisites
 
-- Python 3.8+
-- CUDA-compatible GPU (recommended for optimal performance)
-- Webcam/Camera access
-- Microphone access
+- **Conda**: The environment is managed with Conda to handle complex dependencies.
+- **NVIDIA GPU**: A CUDA-compatible GPU with drivers installed is required for performance.
+- **Python 3.10**
 
-### Installation
+### Installation Steps
 
-1. **Clone the repository**
-   ```bash
-   git clone https://github.com/Vishal-gsu/blind_assistant_server.git
-   cd blind_assistant_server
-   ```
+1.  **Clone the repository**
+    ```bash
+    git clone https://github.com/SudipSaud/Blind_Assistive_system.git
+    cd Blind_Assistive_system
+    ```
 
-2. **Create virtual environment**
-   ```bash
-   python -m venv venv
-   source venv/bin/activate  # On Windows: venv\Scripts\activate
-   ```
+2.  **Create and activate the Conda environment**
+    This command creates a new environment named `blind` with Python 3.10.
+    ```bash
+    conda create -n blind python=3.10 -y
+    conda activate blind
+    ```
 
-3. **Install PyTorch with CUDA support** (for GPU acceleration)
-   ```bash
-   # For CUDA 12.1 (recommended)
-   pip install torch torchvision torchaudio --index-url https://download.pytorch.org/whl/cu121
-   
-   # For CUDA 11.8
-   pip install torch torchvision torchaudio --index-url https://download.pytorch.org/whl/cu118
-   
-   # For CPU only (if no GPU available)
-   pip install torch torchvision torchaudio --index-url https://download.pytorch.org/whl/cpu
-   ```
+3.  **Install PyTorch with CUDA**
+    Install the correct PyTorch version for your system's CUDA toolkit. The following command is for **CUDA 12.1**.
+    *Verify your CUDA version with `nvidia-smi` and get the correct command from the [PyTorch website](https://pytorch.org/get-started/locally/).*
+    ```bash
+    pip install torch torchvision torchaudio --index-url https://download.pytorch.org/whl/cu121
+    ```
 
-4. **Install dependencies**
-   ```bash
-   pip install -r requirements.txt
-   ```
-   
-   **Note**: The requirements.txt includes optimized versions with:
-   - Version-pinned packages for stability
-   - Performance optimizations (uvicorn[standard])
-   - Additional AI/ML libraries (sentence-transformers)
-   - Async file handling support
+4.  **Install ONNX Runtime for GPU**
+    Install the GPU-enabled ONNX Runtime from the trusted `conda-forge` channel. This is crucial for GPU acceleration of face recognition and OCR.
+    ```bash
+    conda install -c conda-forge onnxruntime -y
+    ```
 
-5. **Set up environment variables**
-   ```bash
-   cp env_template.txt .env
-   # Edit .env file with your API keys and configurations
-   ```
-
-6. **Download required models**
-   - The YOLOv8 model (`yolov8n.pt`) should be automatically downloaded
-   - Face recognition models will be initialized on first run
+5.  **Install remaining dependencies**
+    Install all other required Python packages using `pip`.
+    ```bash
+    pip install -r requirements.txt
+    ```
 
 ### Running the Server
 
-**Option 1: Using the optimized startup script (Recommended)**
+Use the optimized startup script. The server will load all models into GPU memory before becoming available.
 ```bash
 python start_server.py
 ```
-
-**Option 2: Direct execution**
-```bash
-python main.py
-```
-
-The server will start on `http://localhost:8000` by default.
-
-### 🔧 Memory Management
-
-For systems with limited GPU memory (< 6GB), the system automatically:
-- Uses CPU for OCR operations to save GPU memory
-- Implements memory clearing between operations
-- Resizes images to optimal sizes
-- Falls back to lighter models when needed
-- Provides detailed memory usage information
-
-**Environment Variables for Memory Optimization:**
-```bash
-# Set these if you encounter memory issues
-export PYTORCH_CUDA_ALLOC_CONF=expandable_segments:True
-export OMP_NUM_THREADS=4
-export CUDA_LAUNCH_BLOCKING=1
-```
+The server will start on `http://localhost:8000`. You can access the interactive API documentation at `http://localhost:8000/docs`.
 
 ## 📡 API Endpoints
 
 ### POST `/process_data`
 
-Main endpoint for processing various tasks:
+The main endpoint for all tasks.
 
+**Request Body:**
 ```json
 {
-  "task": "describe_scene | read_text | find_object | answer_question | time | face_detect",
-  "image_data": "base64_encoded_image",
-  "query_text": "optional_text_query",
-  "conversation_history": [
-    {
-      "role": "user",
-      "content": "previous conversation"
-    }
-  ]
+  "task": "describe_scene | read_text | find_object | answer_question | time | recognize_face | save_face",
+  "image_data": "base64_encoded_image_string",
+  "query_text": "Optional: For 'answer_question' (the question) or 'save_face' (the name)"
 }
 ```
+
+**Task Details:**
+- `describe_scene`: Describes the image.
+- `read_text`: Performs OCR on the image.
+- `find_object`: Detects objects and their depth. `query_text` is not needed.
+- `answer_question`: Answers the question in `query_text` about the image.
+- `time`: Returns the current server time.
+- `recognize_face`: Identifies known faces in the image.
+- `save_face`: Saves a new face from the image using the name provided in `query_text`.
+
 
 **Response:**
 ```json
 {
-  "result_text": "AI response text",
-  "structured_data": {
-    "additional_data": "if_applicable"
-  }
+  "result_text": "The AI-generated response.",
+  "structured_data": { "additional_info": "if_applicable" }
 }
 ```
 
-## 🛠️ Configuration
+## 📝 Project Roadmap & Issues
 
-### Environment Variables
+### High-Level Goals
+- **Personalization**: Train models on user-specific data.
+- **Performance**: Optimize models for speed and accuracy.
+- **Robustness**: Improve error handling and configuration.
 
-Create a `.env` file based on `env_template.txt`:
+### Current Issues & Refactoring Tasks
+- [ ] **Security**: Remove hardcoded path in `face.py` and use a relative or configured path.
+- [ ] **Configuration**: Improve `.env` handling and rename `env_template.txt` to `.env.example`.
+- [ ] **Dependencies**: Ensure all necessary packages are in `requirements.txt`.
+- [ ] **Git**: Untrack `__pycache__` directories.
+- [ ] **Error Handling**: Implement more specific API error responses.
 
-```env
-# API Keys
-OPENAI_API_KEY=your_openai_api_key
-HUGGINGFACE_API_TOKEN=your_huggingface_token
-
-# Model Configuration
-VISION_MODEL=gpt-4-vision-preview
-LLM_MODEL=gpt-3.5-turbo
-
-# Server Configuration
-HOST=0.0.0.0
-PORT=8000
-DEBUG=false
-```
-
-### Model Configuration
-
-The system supports various AI models:
-- **Vision Models**: OpenAI GPT-4 Vision, Hugging Face BLIP models
-- **LLM Models**: OpenAI GPT models, local models via Hugging Face
-- **Object Detection**: YOLOv8 (ultralytics)
-- **OCR**: EasyOCR, Tesseract
-
-### Dependencies
-
-The `requirements.txt` file is organized into categories:
-
-**🌐 Web Framework & API**
-- FastAPI with version pinning for stability
-- Uvicorn with standard extras for better performance
-- Pydantic for data validation
-
-**🤖 AI/ML Libraries**
-- Transformers for NLP models
-- Sentence-transformers for better embeddings
-- PyTorch ecosystem (manual installation required)
-
-**👁️ Computer Vision & OCR**
-- OpenCV for image processing
-- EasyOCR and Tesseract for text recognition
-- Pillow for image manipulation
-
-**🔊 Audio Processing**
-- pyttsx3 for text-to-speech
-- SpeechRecognition for voice input
-- PyAudio for audio handling
-
-**🛠️ Utilities**
-- Async file operations support
-- Environment configuration
-- HTTP client libraries
-
-## 📱 Mobile Integration
-
-This server is designed to work with the Scout1 mobile application (React Native/Expo). The mobile app:
-
-- Captures images and audio
-- Sends requests to this server
-- Provides voice feedback to users
-- Manages wake word detection
-
-## 🧪 Testing
-
-Run the test suite:
-
-```bash
-python test.py
-```
-
-For specific module testing:
-```bash
-python -m pytest tests/
-```
-
-## 📁 Project Structure
-
-```
-blind_assistant_server/
-├── main.py                 # FastAPI server
-├── requirements.txt        # Python dependencies
-├── .env                   # Environment variables
-├── modules/
-│   ├── ai_models.py       # AI model management
-│   ├── face.py            # Face recognition
-│   ├── object_detection.py # Object detection
-│   ├── ocr.py             # Optical character recognition
-│   ├── llm.py             # Language model integration
-│   └── listening.py       # Audio processing
-├── docs/
-│   ├── API_DOCUMENTATION.md
-│   ├── PROJECT_DOCUMENTATION.md
-│   └── PROFESSOR_DOCUMENTATION.md
-└── tests/
-    └── test.py
-```
+### Planned Feature: Personalized Object Detection
+- **Phase 1**: Create a `/learn_object` API endpoint to collect user-labeled images.
+- **Phase 2**: Develop a script to fine-tune a lightweight model (e.g., YOLOv8-Nano) on the collected data.
+- **Phase 3**: Integrate the personalized model into the `find_object` task, with a fallback to the general model.
 
 ## 🤝 Contributing
 
-1. Fork the repository
-2. Create a feature branch (`git checkout -b feature/amazing-feature`)
-3. Commit your changes (`git commit -m 'Add amazing feature'`)
-4. Push to the branch (`git push origin feature/amazing-feature`)
-5. Open a Pull Request
+1.  Fork the repository.
+2.  Create a feature branch (`git checkout -b feature/my-new-feature`).
+3.  Commit your changes (`git commit -m 'Add some feature'`).
+4.  Push to the branch (`git push origin feature/my-new-feature`).
+5.  Open a Pull Request.
 
 ## 📄 License
 
-This project is licensed under the MIT License - see the [LICENSE](LICENSE) file for details.
-
-## 🆘 Support
-
-For support and questions:
-- Create an issue in the GitHub repository
-- Check the documentation in the `docs/` folder
-- Review the API documentation for integration details
+This project is licensed under the MIT License.
 
 ## 🙏 Acknowledgments
 
-- OpenAI for GPT models
-- Ultralytics for YOLOv8
-- Hugging Face for transformer models
-- EasyOCR team for text recognition
-- FastAPI community
-
-## 🔮 Future Enhancements
-
-- [ ] Real-time video processing
-- [ ] Multi-language support
-- [ ] Offline model support
-- [ ] Enhanced voice commands
-- [ ] Gesture recognition
-- [ ] Navigation assistance
-- [ ] Shopping assistance features
-
----
-
-**Built with ❤️ for accessibility and inclusion**
+- Hugging Face for the amazing `transformers` library and model hosting.
+- The creators of FastAPI, PyTorch, and the other open-source libraries used in this project.

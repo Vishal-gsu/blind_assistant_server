@@ -1,56 +1,98 @@
-# object_detection.py
-
-import cv2 
-from ultralytics import YOLO
+"""
+Object Detection Module - YOLOv9 + MIDAS Depth Estimation
+"""
+import cv2
+import numpy as np
 import torch
-import queue
-import time
-# REMOVED: time and face as fr are no longer needed here
+import logging
+from typing import List, Dict, Any
+from ultralytics import YOLO
+from config import YOLO_MODEL_PATH, MIDAS_MODEL_TYPE
 
-ANNOUNCEMENT_COOLDOWN_SECONDS = 5
+logger = logging.getLogger(__name__)
 
-def detect_objects_worker(shutdown_event, frame_queue, results_queue):
-    """
-    A simple worker process that receives frames, runs detection, and returns results.
-    It does NOT access any hardware.
-    """
-    device = "cuda:0" if torch.cuda.is_available() else "cpu"
-    print(f"Object Detection Worker: Using device for YOLO: {device}")
-    
-    try:
-        model = YOLO("yolov8n.pt").to(device)
-    except Exception as e:
-        print(f"Error loading YOLO model: {e}")
-        return
+class ObjectDetector:
+    def __init__(self):
+        self.yolo_model = None
+        self.midas_model = None
+        self.midas_transform = None
+        self.device = None
+        self.is_initialized = False
 
-    print("Object detection worker started.")
+    def load_model(self):
+        """Initialize YOLOv9 and MIDAS models"""
+        if self.is_initialized:
+            return
+        try:
+            logger.info(f"Loading YOLO model from {YOLO_MODEL_PATH}...")
+            self.yolo_model = YOLO(YOLO_MODEL_PATH)
+            logger.info("YOLO model loaded successfully")
 
-    try:
-        while not shutdown_event.is_set():
-            try:
-                # Block until a frame is received from the main process
-                frame = frame_queue.get(timeout=1)
+            logger.info(f"Loading MIDAS {MIDAS_MODEL_TYPE} model...")
+            self.device = torch.device("cuda") if torch.cuda.is_available() else torch.device("cpu")
+            self.midas_model = torch.hub.load("intel-isl/MiDaS", MIDAS_MODEL_TYPE, trust_repo=True).to(self.device)
+            self.midas_model.eval()
 
-                results = model(frame)
-                detected_objects = set()
+            midas_transforms = torch.hub.load("intel-isl/MiDaS", "transforms", trust_repo=True)
+            self.midas_transform = midas_transforms.dpt_transform if MIDAS_MODEL_TYPE in ["DPT_Large", "DPT_Hybrid"] else midas_transforms.small_transform
+            
+            logger.info(f"MIDAS model loaded successfully on {self.device}")
+            self.is_initialized = True
+            logger.info("ObjectDetector initialized successfully")
+        except Exception as e:
+            logger.error(f"Error initializing ObjectDetector: {e}")
+            self.is_initialized = False
 
-                for result in results:
-                    for box in result.boxes:
-                        if box.conf[0] > 0.6:
-                            class_name = model.names[int(box.cls[0])]
-                            detected_objects.add(class_name)
-                
-                # Send the results back to the main process
-                if results_queue.empty():
-                    results_queue.put(list(detected_objects))
+    def calculate_object_depth(self, depth_map, box):
+        """Calculate depth of a detected object."""
+        try:
+            x1, y1, x2, y2 = map(int, box)
+            depth_region = depth_map[y1:y2, x1:x2]
+            return np.mean(depth_region) if depth_region.size > 0 else 0
+        except Exception as e:
+            logger.error(f"Error calculating object depth: {e}")
+            return 0
 
-            except queue.Empty:
-                # This is normal, just means the main process hasn't sent a frame
-                time.sleep(0.1) # prevent busy-waiting
-                continue
-            except Exception as e:
-                print(f"Error in object detection worker: {e}")
-    except KeyboardInterrupt:
-        pass
+    def detect(self, frame: np.ndarray) -> List[Dict[str, Any]]:
+        """Detect objects with depth estimation."""
+        if not self.is_initialized:
+            return []
+        
+        try:
+            # YOLOv9 object detection
+            results = self.yolo_model(frame, imgsz=640, verbose=False)
+            
+            # MIDAS depth estimation
+            img_rgb = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
+            input_batch = self.midas_transform(img_rgb).to(self.device)
+            
+            with torch.no_grad():
+                prediction = self.midas_model(input_batch)
+                prediction = torch.nn.functional.interpolate(
+                    prediction.unsqueeze(1),
+                    size=img_rgb.shape[:2],
+                    mode="bicubic",
+                    align_corners=False,
+                ).squeeze()
+            depth_map = prediction.cpu().numpy()
 
-    print("Object detection worker stopped.")
+            detected_objects = []
+            boxes = results[0].boxes.xyxy.cpu().tolist()
+            classes = results[0].boxes.cls.cpu().tolist()
+            confidences = results[0].boxes.conf.cpu().tolist()
+            names = results[0].names
+
+            for box, cls, conf in zip(boxes, classes, confidences):
+                if conf > 0.3:
+                    depth = self.calculate_object_depth(depth_map, box)
+                    detected_objects.append({
+                        "name": names.get(cls, "Unknown"),
+                        "confidence": conf,
+                        "box": box,
+                        "depth_m": float(depth) 
+                    })
+            
+            return detected_objects
+        except Exception as e:
+            logger.error(f"Error in object detection: {e}")
+            return []
